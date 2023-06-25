@@ -16,6 +16,8 @@ from common.logging_utils import CSVLogger
 from common.misc_utils import update_linear_schedule, update_exponential_schedule
 from vae_motion.models import PoseVAEController, PoseVAEPolicy
 
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"
+
 
 def make_gym_environment(args):
 
@@ -62,7 +64,7 @@ class StatsLogger:
                 "Updates {}, num timesteps {}, FPS {}, "
                 "mean/median reward {:.1f}/{:.1f}, "
                 "min/max reward {:.1f}/{:.1f}, "
-                "entropy {:.5f}, value loss {:.5f}, policy loss {:.5f}"
+                "entropy {:.5f}, value loss {:.5f}, policy loss {:.8f}"
             ).format(
                 data["update"],
                 data["num_steps"],

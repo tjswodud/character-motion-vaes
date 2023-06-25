@@ -83,8 +83,9 @@ class EnvBase(gym.Env):
 
         # 4 and 7 are height for right and left toes respectively
         # y-axis in the data, but z-axis in the env
-        self.foot_xy_ind = torch.LongTensor([[3, 5], [6, 8]])
-        self.foot_z_ind = torch.LongTensor([4, 7])
+        # -------------------------- can modify ----------------------------------------
+        self.foot_xy_ind = torch.LongTensor([[24, 26], [12, 14]]) # ubisoft dataset
+        self.foot_z_ind = torch.LongTensor([25, 13])
         self.contact_threshold = 0.03 * METER2FOOT
         self.foot_pos_history = torch.zeros((self.num_parallel, 2, 6)).to(self.device)
 
@@ -92,6 +93,7 @@ class EnvBase(gym.Env):
         x_indices = indices[slice(3, 69, 3)]
         y_indices = indices[slice(4, 69, 3)]
         z_indices = indices[slice(5, 69, 3)]
+        # ------------------------------------------------------------------------------
         self.joint_indices = (x_indices, y_indices, z_indices)
 
         if self.is_rendered:
@@ -109,7 +111,13 @@ class EnvBase(gym.Env):
         self.action_space = gym.spaces.Box(-high, high, dtype=np.float32)
 
     def load_data(self, pose_vae_path):
+        # mocap_file = os.path.join(current_dir, "mocap_ubisoft_2.npz")
+        # mocap_file = os.path.join(current_dir, "mocap_testing.npz")
+        # mocap_file = os.path.join(current_dir, "mocap.npz")
         mocap_file = os.path.join(current_dir, "pose0.npy")
+        # mocap_file = os.path.join(current_dir, "pose_ubisoft.npy")
+        # mocap_file = os.path.join(current_dir, "mocap_test.npz")
+        # data = torch.from_numpy(np.load(mocap_file)['data'])
         data = torch.from_numpy(np.load(mocap_file))
         self.mocap_data = data.float().to(self.device)
 
@@ -133,8 +141,10 @@ class EnvBase(gym.Env):
 
     def integrate_root_translation(self, pose):
         mat = self.get_rotation_matrix(self.root_facing)
+        # -------------------------- can modify ------------------------------------
         displacement = (mat * pose[:, 0:2].unsqueeze(1)).sum(dim=2)
         self.root_facing.add_(pose[:, [2]]).remainder_(2 * np.pi)
+        # --------------------------------------------------------------------------
         self.root_xz.add_(displacement)
 
         self.history = self.history.roll(1, dims=1)

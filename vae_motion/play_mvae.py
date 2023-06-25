@@ -16,6 +16,8 @@ FOOT2CM = FOOT2METER * 100
 
 env_module = "environments"
 
+print(torch.cuda.is_available())
+
 
 def test_vae_replay_full_motion(args):
     device = "cpu"
@@ -74,7 +76,7 @@ def test_vae_replay_full_motion(args):
                     alpha[0] = 0
                 frames = (
                     alpha.view(-1, 1, 1) * frames
-                    + alpha.mul(-1).add(1).view(-1, 1, 1) * mocap_data[prediction_range]
+                        + alpha.mul(-1).add(1).view(-1, 1, 1) * mocap_data[prediction_range]
                 )
 
                 frame = frames[:, i]

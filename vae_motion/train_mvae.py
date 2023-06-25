@@ -3,12 +3,18 @@ import os
 import time
 from types import SimpleNamespace
 
+import argparse
+
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
 current_dir = os.path.dirname(os.path.realpath(__file__))
 parent_dir = os.path.dirname(current_dir)
 os.sys.path.append(parent_dir)
 
 import numpy as np
 import torch
+import torch.onnx
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
@@ -37,7 +43,7 @@ class StatsLogger:
         remaining = estimated - elapsed
 
         em, es = divmod(elapsed, 60)
-        rm, rs = divmod(remaining, 60)
+        rm, rs = divmod(remaining, 60) # a tuple (x // y, x % y)
 
         if self.progress_format is None:
             time_format = "%{:d}dm %02ds".format(int(np.log10(rm) + 1))
@@ -111,34 +117,112 @@ def feed_vae(pose_vae, ground_truth, condition, future_weights):
 
 def main():
     env_path = os.path.join(parent_dir, "environments")
-
-    # setup parameters
-    args = SimpleNamespace(
-        device="cuda:0" if torch.cuda.is_available() else "cpu",
-        mocap_file=os.path.join(env_path, "mocap.npz"),
-        norm_mode="zscore",
-        latent_size=32,
-        num_embeddings=12,
-        num_experts=6,
-        num_condition_frames=1,
-        num_future_predictions=1,
-        num_steps_per_rollout=8,
-        kl_beta=1.0,
-        load_saved_model=True,
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="cuda:0" if torch.cuda.is_available() else "cpu",
+        required=False,
+    )
+    parser.add_argument(
+        "--mocap_file",
+        type=str,
+        default=os.path.join(env_path, "mocap.npz"),
+        required=False,
+    )
+    parser.add_argument(
+        "--norm_mode",
+        type=str,
+        default="zscore",
+        required=False,
+    )
+    parser.add_argument(
+        "--latent_size",
+        type=int,
+        default=32,
+        required=False,
+    )
+    parser.add_argument(
+        "--num_embeddings",  # no need to
+        type=int,
+        default=12,
+        required=False,
+    )
+    parser.add_argument(
+        "--num_experts",
+        type=int,
+        default=6,
+        required=False
+    )
+    parser.add_argument(
+        "--num_condition_frames",
+        type=int,
+        default=1,
+        required=False
+    )
+    parser.add_argument(
+        "--num_future_predictions",
+        type=int,
+        default=1,
+        required=False
+    )
+    parser.add_argument(
+        "--num_steps_per_rollout",
+        type=int,
+        default=8,
+        required=False
+    )
+    parser.add_argument(
+        "--kl_beta",
+        type=float,
+        default=0.4,  # 0.4
+        required=False
+    )
+    parser.add_argument(
+        "--load_saved_model",
+        type=bool,
+        default=False,
+        required=False
     )
 
+    args = parser.parse_args()
+
+    # setup parameters
+    # args = SimpleNamespace(
+    #     device="cuda:0" if torch.cuda.is_available() else "cpu",
+    #     # device="cpu",
+    #     mocap_file=os.path.join(env_path, "mocap_ubisoft.npz"),
+    #     # mocap_file=os.path.join(env_path, "mocap_testing.npz"),
+    #     # mocap_file=os.path.join(env_path, "mocap.npz"),
+    #     # mocap_file=os.path.join(env_path, "mocap_test.npz"),
+    #     norm_mode="zscore",
+    #     latent_size=32, # original : 32
+    #     num_embeddings=12,
+    #     num_experts=6,
+    #     num_condition_frames=1,
+    #     num_future_predictions=1,
+    #     num_steps_per_rollout=8,
+    #     kl_beta=0.2, # original : 1.0
+    #     load_saved_model=True,
+    # )
+
     # learning parameters
-    teacher_epochs = 20
-    ramping_epochs = 20
-    student_epochs = 100
+    teacher_epochs = 20 # original : 20
+    ramping_epochs = 20 # original : 20
+    student_epochs = 100 # original : 100
     args.num_epochs = teacher_epochs + ramping_epochs + student_epochs
     args.mini_batch_size = 64
-    args.initial_lr = 1e-4
-    args.final_lr = 1e-7
+    args.initial_lr = 1e-4 # original : 1e-4
+    args.final_lr = 1e-7 # original : 1e-7
 
     raw_data = np.load(args.mocap_file)
-    mocap_data = torch.from_numpy(raw_data["data"]).float().to(args.device)
-    end_indices = raw_data["end_indices"]
+    mocap_data = torch.from_numpy(raw_data["data"]).float().to(args.device) # device alignment
+    """
+    torch.from_numpy(ndarray) -> Tensor : Creates a Tensor from a numpy.ndarray.
+    torch.Tensor.float() -> Tensor
+    torch.Tensor.to() -> Tensor : Performs Tensor dtype and/or device conversion.
+    """
+    end_indices = raw_data["end_indices"] # T-pose discard
 
     max = mocap_data.max(dim=0)[0]
     min = mocap_data.min(dim=0)[0]
@@ -156,12 +240,14 @@ def main():
         "std": std,
     }
 
+    # feature normalization
     if args.norm_mode == "minmax":
         mocap_data = 2 * (mocap_data - min) / (max - min) - 1
 
     elif args.norm_mode == "zscore":
         mocap_data = (mocap_data - avg) / std
 
+    # batch_size = args.mini_batch_size // 2
     batch_size = mocap_data.size()[0]
     frame_size = mocap_data.size()[1]
 
@@ -169,14 +255,14 @@ def main():
     # need to take account of num_steps_per_rollout and num_future_predictions
     bad_indices = np.sort(
         np.concatenate(
-            [
+            np.array([
                 end_indices - i
                 for i in range(
                     args.num_steps_per_rollout
                     + (args.num_condition_frames - 1)
                     + (args.num_future_predictions - 1)
                 )
-            ]
+            ]), axis=None
         )
     )
     all_indices = np.arange(batch_size)
@@ -193,19 +279,19 @@ def main():
     ).to(args.device)
 
     if isinstance(pose_vae, PoseVAE):
-        pose_vae_path = "posevae_c{}_l{}.pt".format(
+        pose_vae_path = "models/posevae_c{}_l{}.pt".format(
             args.num_condition_frames, args.latent_size
         )
     elif isinstance(pose_vae, PoseMixtureVAE):
-        pose_vae_path = "posevae_c{}_e{}_l{}.pt".format(
+        pose_vae_path = "models/posevae_c{}_e{}_l{}.pt".format(
             args.num_condition_frames, args.num_experts, args.latent_size
         )
     elif isinstance(pose_vae, PoseMixtureSpecialistVAE):
-        pose_vae_path = "posevae_c{}_s{}_l{}.pt".format(
+        pose_vae_path = "models/posevae_c{}_s{}_l{}.pt".format(
             args.num_condition_frames, args.num_experts, args.latent_size
         )
     elif isinstance(pose_vae, PoseVQVAE):
-        pose_vae_path = "posevae_c{}_n{}_l{}.pt".format(
+        pose_vae_path = "models/posevae_c{}_n{}_l{}.pt".format(
             args.num_condition_frames, args.num_embeddings, args.latent_size
         )
 
@@ -274,11 +360,17 @@ def main():
                 # dims: (num_parallel, num_window, feature_size)
                 use_student = torch.rand(1) < sample_schedule[ep - 1]
 
+                # prediction_range = (
+                #         t_indices.repeat((args.num_future_predictions, 1)).t()
+                # )
                 prediction_range = (
-                    t_indices.repeat((args.num_future_predictions, 1)).t()
+                    t_indices.repeat((args.num_future_predictions, 1)).t() # transpose
                     + torch.arange(offset, offset + args.num_future_predictions).long()
                 )
-                ground_truth = mocap_data[prediction_range]
+                # print(torch.max(prediction_range))
+                ground_truth = mocap_data[prediction_range] # error! -> out of index
+                # print(mocap_data.size())
+                # print(prediction_range.size())
                 condition = history[:, : args.num_condition_frames]
 
                 if isinstance(pose_vae, PoseVQVAE):
@@ -298,6 +390,7 @@ def main():
 
                 vae_optimizer.zero_grad()
                 (recon_loss + args.kl_beta * kl_loss).backward()
+                torch.nn.utils.clip_grad_norm_(pose_vae.parameters(), max_norm=5) # added gradient clipping
                 vae_optimizer.step()
 
                 ep_recon_loss += float(recon_loss) / args.num_steps_per_rollout
@@ -317,6 +410,7 @@ def main():
         )
 
         torch.save(copy.deepcopy(pose_vae).cpu(), pose_vae_path)
+
 
 
 if __name__ == "__main__":
