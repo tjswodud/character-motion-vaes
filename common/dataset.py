@@ -8,10 +8,13 @@ end_indices = []
 
 start_time = time.time() # time check
 
-dataset_path = 'dataset/bvh/ubisoft/'
-dataset = ['walk1_subject1.bvh', 'run1_subject2.bvh', 'run1_subject5.bvh', 'sprint1_subject2.bvh', 'sprint1_subject4.bvh']
+# dataset_path = 'dataset/bvh/ubisoft/'
+dataset_path = 'dataset/bvh/bandai-namco-normal/'
+# dataset = ['walk1_subject1.bvh', 'run1_subject2.bvh', 'run1_subject5.bvh', 'sprint1_subject2.bvh', 'sprint1_subject4.bvh']
+# dataset = ['dataset-2_run_active_%03d.bvh' % (i + 1) for i in range(59)]
+dataset_list = os.listdir(dataset_path)
 
-for file in dataset:
+for file in dataset_list:
     data_path = dataset_path + file
 
     motion = bvh.load(data_path)
@@ -38,21 +41,21 @@ for file in dataset:
     for i in range(len(motion.poses)): # for each frames
         mini_batch = []
 
-        x_heap = positions[i, 0, 0]
-        y_heap = positions[i, 0, 1]
-        z_heap = positions[i, 0, 2]
+        # x_heap = positions[i, 0, 0]
+        # y_heap = positions[i, 0, 1]
+        # z_heap = positions[i, 0, 2]
 
-        # x_mean = np.mean(positions[i, :, 0])
-        # y_mean = np.mean(positions[i, :, 1])
-        # z_mean = np.mean(positions[i, :, 2])
+        x_mean = np.mean(positions[i, :, 0])
+        y_mean = np.mean(positions[i, :, 1])
+        z_mean = np.mean(positions[i, :, 2])
 
-        # positions[i, :, 0] -= x_mean
-        # positions[i, :, 1] -= y_mean
-        # positions[i, :, 2] -= z_mean
+        positions[i, :, 0] -= x_mean
+        positions[i, :, 1] -= y_mean
+        positions[i, :, 2] -= z_mean
 
-        positions[i, :, 0] -= x_heap
-        positions[i, :, 1] -= y_heap
-        positions[i, :, 2] -= z_heap
+        # positions[i, :, 0] -= x_heap
+        # positions[i, :, 1] -= y_heap
+        # positions[i, :, 2] -= z_heap
 
         rx = positions[:, 0, 0]
         ry = positions[:, 0, 1]
@@ -81,8 +84,8 @@ for file in dataset:
 data = np.array(data)
 end_indices = np.cumsum(np.array(end_indices)) - 1
 
-np.save('../environments/pose_ubisoft_zeroheap.npy', data[0])
-np.savez('../environments/mocap_ubisoft_zeroheap', data=data, end_indices=end_indices)
+# np.save('../environments/pose_ubisoft_zeroheap.npy', data[0])
+np.savez('../environments/mocap_bandai_namco', data=data, end_indices=end_indices)
 
 end_time = time.time()
 elapsed_time = int(end_time - start_time)
