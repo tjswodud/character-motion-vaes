@@ -84,8 +84,12 @@ class EnvBase(gym.Env):
         # 4 and 7 are height for right and left toes respectively
         # y-axis in the data, but z-axis in the env
         # -------------------------- can modify ----------------------------------------
-        self.foot_xy_ind = torch.LongTensor([[24, 26], [12, 14]]) # ubisoft dataset
-        self.foot_z_ind = torch.LongTensor([25, 13])
+        self.foot_xy_ind = torch.LongTensor([[30, 32], [15, 17]])
+        self.foot_z_ind = torch.LongTensor([31, 16])
+        # self.foot_xy_ind = torch.LongTensor([[63, 65], [51, 53]])  # bandai namco dataset
+        # self.foot_z_ind = torch.LongTensor([64, 52])
+        # self.foot_xy_ind = torch.LongTensor([[24, 26], [12, 14]]) # ubisoft dataset / [(index + 1) * 3, (index + 1) * 3 + 2]
+        # self.foot_z_ind = torch.LongTensor([25, 13]) # right, left
         self.contact_threshold = 0.03 * METER2FOOT
         self.foot_pos_history = torch.zeros((self.num_parallel, 2, 6)).to(self.device)
 
@@ -114,7 +118,8 @@ class EnvBase(gym.Env):
         # mocap_file = os.path.join(current_dir, "mocap_ubisoft_2.npz")
         # mocap_file = os.path.join(current_dir, "mocap_testing.npz")
         # mocap_file = os.path.join(current_dir, "mocap.npz")
-        mocap_file = os.path.join(current_dir, "pose0.npy")
+        # mocap_file = os.path.join(current_dir, "pose0.npy")
+        mocap_file = os.path.join(current_dir, "pose_pfnn.npy")
         # mocap_file = os.path.join(current_dir, "pose_ubisoft.npy")
         # mocap_file = os.path.join(current_dir, "mocap_test.npz")
         # data = torch.from_numpy(np.load(mocap_file)['data'])
