@@ -84,8 +84,8 @@ class EnvBase(gym.Env):
         # 4 and 7 are height for right and left toes respectively
         # y-axis in the data, but z-axis in the env
         # -------------------------- can modify ----------------------------------------
-        self.foot_xy_ind = torch.LongTensor([[30, 31], [15, 16]])
-        self.foot_z_ind = torch.LongTensor([32, 17])
+        self.foot_xy_ind = torch.LongTensor([[30, 32], [15, 17]])
+        self.foot_z_ind = torch.LongTensor([31, 16])
         # self.foot_xy_ind = torch.LongTensor([[63, 65], [51, 53]])  # bandai namco dataset
         # self.foot_z_ind = torch.LongTensor([64, 52])
         # self.foot_xy_ind = torch.LongTensor([[24, 26], [12, 14]]) # ubisoft dataset / [(index + 1) * 3, (index + 1) * 3 + 2]
@@ -93,10 +93,10 @@ class EnvBase(gym.Env):
         self.contact_threshold = 0.03 * METER2FOOT
         self.foot_pos_history = torch.zeros((self.num_parallel, 2, 6)).to(self.device)
 
-        indices = torch.arange(0, 69).long().to(self.device)
-        x_indices = indices[slice(3, 69, 3)]
-        y_indices = indices[slice(4, 69, 3)]
-        z_indices = indices[slice(5, 69, 3)]
+        indices = torch.arange(0, 96).long().to(self.device) # original : 69
+        x_indices = indices[slice(3, 96, 3)] # original : 69
+        y_indices = indices[slice(4, 96, 3)] # original : 69
+        z_indices = indices[slice(5, 96, 3)] # original : 69
         # ------------------------------------------------------------------------------
         self.joint_indices = (x_indices, y_indices, z_indices)
 
@@ -115,14 +115,9 @@ class EnvBase(gym.Env):
         self.action_space = gym.spaces.Box(-high, high, dtype=np.float32)
 
     def load_data(self, pose_vae_path):
-        # mocap_file = os.path.join(current_dir, "mocap_ubisoft_2.npz")
-        # mocap_file = os.path.join(current_dir, "mocap_testing.npz")
-        # mocap_file = os.path.join(current_dir, "mocap.npz")
         # mocap_file = os.path.join(current_dir, "pose0.npy")
         mocap_file = os.path.join(current_dir, "pose_pfnn.npy")
         # mocap_file = os.path.join(current_dir, "pose_ubisoft.npy")
-        # mocap_file = os.path.join(current_dir, "mocap_test.npz")
-        # data = torch.from_numpy(np.load(mocap_file)['data'])
         data = torch.from_numpy(np.load(mocap_file))
         self.mocap_data = data.float().to(self.device)
 
