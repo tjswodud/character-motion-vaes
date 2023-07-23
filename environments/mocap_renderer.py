@@ -36,14 +36,14 @@ class PBLMocapViewer:
         x_ind=None,
         y_ind=None,
         z_ind=None,
-        target_fps=30,
+        target_fps=120, # original : 30
         use_params=True,
         camera_tracking=True,
     ):
-        indices = torch.arange(0, 69).long()
-        self.x_indices = indices[slice(3, 69, 3)] if x_ind is None else x_ind
-        self.y_indices = indices[slice(4, 69, 3)] if y_ind is None else y_ind
-        self.z_indices = indices[slice(5, 69, 3)] if z_ind is None else z_ind
+        indices = torch.arange(0, 96).long()
+        self.x_indices = indices[slice(3, 96, 3)] if x_ind is None else x_ind
+        self.y_indices = indices[slice(4, 96, 3)] if y_ind is None else y_ind
+        self.z_indices = indices[slice(5, 96, 3)] if z_ind is None else z_ind
         self.joint_indices = (self.x_indices, self.y_indices, self.z_indices)
 
         self.env = env
@@ -412,7 +412,7 @@ class PBLMocapViewer:
 class MultiMocapCharacters:
     def __init__(self, bc, num_characters, colours=None, links=True):
         self._p = bc
-        self.num_joints = 22
+        self.num_joints = 31
         total_parts = num_characters * self.num_joints
 
         # create all spheres at once using batchPositions
@@ -425,20 +425,27 @@ class MultiMocapCharacters:
         if links:
             self.linked_joints = np.array(
                 [
-                    [12, 0],  # right foot
-                    [16, 12],  # right shin
-                    [14, 16],  # right leg
-                    [15, 17],  # left foot
-                    [17, 13],  # left shin
-                    [13, 1],  # left leg
-                    [5, 7],  # right shoulder
-                    [7, 10],  # right upper arm
-                    [10, 20],  # right lower arm
-                    [6, 8],  # left shoulder
-                    [8, 9],  # left upper arm
-                    [9, 21],  # left lower arm
-                    [3, 18],  # torso
-                    [14, 15],  # hip
+                    # PFNN
+                    [9, 10],  # right foot
+                    [8, 9],  # right leg
+                    [7, 8],  # right upper leg
+                    [0, 7],
+                    [4, 5],  # left foot
+                    [3, 4],  # left leg
+                    [2, 3],  # left upper leg
+                    [0, 2],
+                    [24, 25],  # right shoulder
+                    [25, 26],  # right upper arm
+                    [26, 27],  # right lower arm
+                    [17, 18],  # left shoulder
+                    [18, 19],  # left upper arm
+                    [19, 20],  # left lower arm
+                    [11, 12],
+                    [12, 13],  # torso
+                    [13, 14],
+                    [14, 15],
+                    [17, 18],
+                    [15, 16]  # hip
                 ]
             )
 
@@ -529,7 +536,7 @@ class MocapCharacter:
     def __init__(self, bc, rgba=None):
 
         self._p = bc
-        num_joints = 22
+        num_joints = 31
 
         # useMaximalCoordinates=True is faster for things that don't `move`
         body = VSphere(bc, radius=0.07, rgba=rgba, max=True, replica=num_joints)

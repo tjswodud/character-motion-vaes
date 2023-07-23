@@ -207,9 +207,9 @@ def main():
     # )
 
     # learning parameters
-    teacher_epochs = 5 # original : 20
-    ramping_epochs = 5 # original : 20
-    student_epochs = 20 # original : 100
+    teacher_epochs = 10 # original : 20
+    ramping_epochs = 10 # original : 20
+    student_epochs = 50 # original : 100
     args.num_epochs = teacher_epochs + ramping_epochs + student_epochs
     args.mini_batch_size = 64
     args.initial_lr = 1e-4 # original : 1e-4

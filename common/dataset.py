@@ -24,8 +24,38 @@ for file in dataset_list:
 
     positions = motion.positions(local=False) # (frames, joints, 3)
 
+    # calculate rx, ry, ra in global space
+    root_linear_velocity = positions[1:, 0] - positions[:-1, 0]
+    root_linear_velocity = np.concatenate(
+        (np.expand_dims(np.zeros((root_linear_velocity.shape[1],)), axis=0), root_linear_velocity))
+    rx = root_linear_velocity[:, 0]
+    ry = root_linear_velocity[:, 2]
+    # rx = positions[:, 0, 0]
+    # ry = positions[:, 0, 1]
+    # ra = facing_vector[:, 0]
+
+    v_linear = rx + ry
+    r = np.sqrt(np.power(positions[:, 0, 0], 2) + np.power(positions[:, 0, 2], 2))
+    ra = v_linear / r
+
+    # translate to the character's root space
+    matrices = []
+    for pose in motion.poses:
+        matrix = pose.get_transform(0, local=False)
+        matrices.append(matrix)
+
+    transform_matrices = np.stack(matrices, axis=0)
+    transform_matrices_inv = np.linalg.inv(transform_matrices)
+    global_positions = np.swapaxes(positions, 1, 2) # (frames, 3, joints)
+    global_positions = np.insert(global_positions, 3, np.ones((1, global_positions.shape[2])), axis=1) # (frames, 4, joints)
+
+    root_local_positions = transform_matrices_inv @ global_positions
+    root_local_positions = np.delete(root_local_positions, -1, axis=1)
+    positions = root_local_positions.swapaxes(1, 2)
+
     velocities = positions[1:] - positions[:-1]
     orientations = motion.rotations(local=False)[..., :, :2].reshape(-1, 31, 6) # PFNN
+    rotations = motion.rotations(local=False)
 
     """
     heap_vectors = positions[:, 6] # bandai namco : 18, 14
@@ -36,21 +66,10 @@ for file in dataset_list:
     facing_vector = facing_vector / np.sqrt(np.power(facing_vector, 2).sum())
     """
 
-    root_linear_velocity = positions[1:, 0] - positions[:-1, 0]
-    root_linear_velocity = np.concatenate((np.expand_dims(np.zeros((root_linear_velocity.shape[1],)), axis=0), root_linear_velocity))
-    rx = root_linear_velocity[:, 0]
-    ry = root_linear_velocity[:, 2]
-    # rx = positions[:, 0, 0]
-    # ry = positions[:, 0, 1]
-    # ra = facing_vector[:, 0]
-    ra = np.sqrt(np.power(rx, 2) + np.power(ry, 2)) / np.sqrt(np.power(positions[:, 0, 0], 2) + np.power(positions[:, 0, 2], 2))
-
-    positions[:, 1:, :] -= positions[:, 0, :].reshape(positions.shape[0], -1, positions.shape[2])  # translate to root space
+    velocities = np.concatenate((np.expand_dims(np.zeros((velocities.shape[1], velocities.shape[2])), axis=0), velocities))  # (frame, num of joints, 3)
 
     new_data = np.concatenate((rx.reshape(-1, 1), ry.reshape(-1, 1), ra.reshape(-1, 1)), axis=1)
     new_data = np.concatenate((new_data, positions.reshape(positions.shape[0], -1)), axis=1)
-
-    velocities = np.concatenate((np.expand_dims(np.zeros((velocities.shape[1], velocities.shape[2])), axis=0), velocities)) # (frame, num of joints, 3)
     new_data = np.concatenate((new_data, velocities.reshape(velocities.shape[0], -1)), axis=1)
     new_data = np.concatenate((new_data, orientations.reshape(orientations.shape[0], -1)), axis=1)
 
@@ -96,7 +115,7 @@ data = np.delete(data, 0, axis=0)
 end_indices = np.cumsum(np.array(end_indices)) - 1
 
 np.save('../environments/pose_pfnn.npy', data[0].reshape(1, -1))
-np.savez('../environments/mocap_pfnn_8', data=data, end_indices=end_indices)
+np.savez('../environments/mocap_pfnn_10', data=data, end_indices=end_indices)
 
 end_time = time.time()
 elapsed_time = int(end_time - start_time)

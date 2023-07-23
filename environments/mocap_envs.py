@@ -93,7 +93,7 @@ class EnvBase(gym.Env):
         self.contact_threshold = 0.03 * METER2FOOT
         self.foot_pos_history = torch.zeros((self.num_parallel, 2, 6)).to(self.device)
 
-        indices = torch.arange(0, 96).long().to(self.device) # original : 69
+        indices = torch.arange(0, 96).long().to(self.device) # original : 69 = (22 + 1) * 3
         x_indices = indices[slice(3, 96, 3)] # original : 69
         y_indices = indices[slice(4, 96, 3)] # original : 69
         z_indices = indices[slice(5, 96, 3)] # original : 69
@@ -117,7 +117,7 @@ class EnvBase(gym.Env):
     def load_data(self, pose_vae_path):
         # mocap_file = os.path.join(current_dir, "pose0.npy")
         mocap_file = os.path.join(current_dir, "pose_pfnn.npy")
-        # mocap_file = os.path.join(current_dir, "pose_ubisoft.npy")
+        # mocap_file = os.path.join(current_dir, "pose_bandai_namco.npy")
         data = torch.from_numpy(np.load(mocap_file))
         self.mocap_data = data.float().to(self.device)
 
